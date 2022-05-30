@@ -3,9 +3,8 @@ import { useBridgeQuery } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
-import clsx from 'clsx';
-import React, { useContext, useEffect, useState } from 'react';
-import { useCountUp } from 'react-countup';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import CountUp from 'react-countup';
 import create from 'zustand';
 
 import { AppPropsContext } from '../App';
@@ -14,8 +13,9 @@ import Dialog from '../components/layout/Dialog';
 
 interface StatItemProps {
 	name: string;
-	value?: string;
-	unit?: string;
+
+	// The raw numeric value of the stat item.
+	value: string;
 }
 
 type OverviewState = {
@@ -32,48 +32,31 @@ export const useOverviewState = create<OverviewState>((set) => ({
 		}))
 }));
 
-const StatItem: React.FC<StatItemProps> = (props) => {
-	const countUp = React.useRef(null);
-	const hiddenCountUp = React.useRef(null);
+const StatItem: React.FC<StatItemProps> = ({ name, value: rawValue }) => {
+	const itemUsedStorage = useMemo(() => {
+		const size = byteSize(parseFloat(rawValue));
+
+		if (name === 'Total capacity') console.log(size.toString());
+
+		return {
+			value: parseInt(size.value),
+			unit: size.unit
+		};
+	}, [rawValue]);
 	const appPropsContext = useContext(AppPropsContext);
-	let size = byteSize(Number(props.value) || 0);
 
-	let amount = parseFloat(size.value);
-
-	const { lastOverviewStatsSize, setOverviewStatsSize } = useOverviewState();
-
-	console.log(props.name, lastOverviewStatsSize[props.name], amount);
-
-	const { update } = useCountUp({
-		ref: lastOverviewStatsSize[props.name] === amount ? hiddenCountUp : countUp,
-		end: amount,
-		delay: 0.1,
-		decimals: 1,
-		duration: appPropsContext?.demoMode ? 1 : 0.5,
-		useEasing: true,
-		onEnd: () => {
-			setOverviewStatsSize(props.name, amount);
-		}
-	});
-
-	useEffect(() => update(amount), [amount]);
-
+	// This will flash the demo data but we should prevent that upstream instead of adding a delay here because `CountUp` doesn't have a delay.
 	return (
-		<div
-			className={clsx(
-				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600',
-				!amount && 'hidden'
-			)}
-		>
-			<span className="text-sm text-gray-400">{props.name}</span>
+		<div className="flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600">
+			<span className="text-sm text-gray-400">{name}</span>
 			<span className="text-2xl font-bold">
-				<span className="hidden" ref={hiddenCountUp} />
-				{lastOverviewStatsSize[props.name] === amount ? (
-					<span>{size.value}</span>
-				) : (
-					<span ref={countUp} />
-				)}
-				<span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>
+				<CountUp
+					end={itemUsedStorage.value}
+					decimal="1"
+					duration={appPropsContext?.demoMode ? 1 : 0.5}
+					useEasing={true}
+				/>
+				<span className="ml-1 text-[16px] text-gray-400">{itemUsedStorage.unit}</span>
 			</span>
 		</div>
 	);
@@ -113,27 +96,21 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
 					<div className="flex pb-4 overflow-hidden">
-						<StatItem
-							name="Total capacity"
-							value={stats?.total_bytes_capacity}
-							unit={stats?.total_bytes_capacity}
-						/>
-						<StatItem
-							name="Index size"
-							value={stats?.library_db_size}
-							unit={stats?.library_db_size}
-						/>
-						<StatItem
-							name="Preview media"
-							value={stats?.preview_media_bytes}
-							unit={stats?.preview_media_bytes}
-						/>
-						<StatItem
-							name="Free space"
-							value={stats?.total_bytes_free}
-							unit={stats?.total_bytes_free}
-						/>
-						<StatItem name="Total at-risk" value={'0'} unit={stats?.preview_media_bytes} />
+						{stats?.total_bytes_capacity !== undefined && (
+							<StatItem name="Total capacity" value={stats.total_bytes_capacity} />
+						)}
+						{stats?.library_db_size !== undefined && (
+							<StatItem name="Index size" value={stats.library_db_size} />
+						)}
+						{stats?.preview_media_bytes !== undefined && (
+							<StatItem name="Preview mediay" value={stats.preview_media_bytes} />
+						)}
+						{stats?.total_bytes_free !== undefined && (
+							<StatItem name="Free space" value={stats.total_bytes_free} />
+						)}
+						{stats?.preview_media_bytes !== undefined && (
+							<StatItem name="Total at-risk" value={stats.preview_media_bytes} />
+						)}
 						{/* <StatItem
               name="Total at-risk"
               value={'0'}
