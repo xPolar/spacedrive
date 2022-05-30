@@ -19,16 +19,16 @@ interface StatItemProps {
 }
 
 type OverviewState = {
-	hasOverviewStatsRan: boolean;
-	setOverviewStatsRan: (ran: boolean) => void;
+	lastOverviewStatsSize: Record<string, number>;
+	setOverviewStatsSize: (statName: string, statAmount: number) => void;
 };
 
 export const useOverviewState = create<OverviewState>((set) => ({
-	hasOverviewStatsRan: false,
-	setOverviewStatsRan: (ran: boolean) =>
+	lastOverviewStatsSize: {},
+	setOverviewStatsSize: (statName: string, statAmount: number) =>
 		set((state) => ({
 			...state,
-			hasOverviewStatsRan: ran
+			lastOverviewStatsAmounts: { ...state.lastOverviewStatsSize, [statName]: statAmount }
 		}))
 }));
 
@@ -40,17 +40,19 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 	let amount = parseFloat(size.value);
 
-	const { hasOverviewStatsRan, setOverviewStatsRan } = useOverviewState();
+	const { lastOverviewStatsSize, setOverviewStatsSize } = useOverviewState();
+
+	console.log(props.name, lastOverviewStatsSize[props.name], amount);
 
 	const { update } = useCountUp({
-		ref: hasOverviewStatsRan ? hiddenCountUp : countUp,
+		ref: lastOverviewStatsSize[props.name] === amount ? hiddenCountUp : countUp,
 		end: amount,
 		delay: 0.1,
 		decimals: 1,
 		duration: appPropsContext?.demoMode ? 1 : 0.5,
 		useEasing: true,
 		onEnd: () => {
-			setOverviewStatsRan(true);
+			setOverviewStatsSize(props.name, amount);
 		}
 	});
 
@@ -66,7 +68,11 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 			<span className="text-sm text-gray-400">{props.name}</span>
 			<span className="text-2xl font-bold">
 				<span className="hidden" ref={hiddenCountUp} />
-				{hasOverviewStatsRan ? <span>{size.value}</span> : <span ref={countUp} />}
+				{lastOverviewStatsSize[props.name] === amount ? (
+					<span>{size.value}</span>
+				) : (
+					<span ref={countUp} />
+				)}
 				<span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>
 			</span>
 		</div>
